@@ -106,9 +106,9 @@ float *ReadGyro() {
     data[2] = l3g_sensor.g.z;
 #endif
 
-    output[0] = SENSOR_SIGN[0] * data[0];
-    output[1] = SENSOR_SIGN[1] * data[1];
-    output[2] = SENSOR_SIGN[2] * data[2];
+    output[0] = Gyro_Scaled_X(SENSOR_SIGN[0] * data[0]);
+    output[1] = Gyro_Scaled_Y(SENSOR_SIGN[1] * data[1]);
+    output[2] = Gyro_Scaled_Z(SENSOR_SIGN[2] * data[2]);
 
     return output;
 }
@@ -155,9 +155,11 @@ float *ReadMagneto() {
     data[1] = SENSOR_SIGN[7] * lsm303_sensor.m.y;
     data[2] = SENSOR_SIGN[8] * lsm303_sensor.m.z;
 #endif
-    output[0] = SENSOR_SIGN[6] * data[6];
-    output[1] = SENSOR_SIGN[7] * data[7];
-    output[2] = SENSOR_SIGN[8] * data[8];
+
+     // adjust for LSM303 compass axis offsets/sensitivity differences by scaling to +/-0.5 range
+    output[0] = (float)(SENSOR_SIGN[6] * (data[6] - M_X_MIN)) / (M_X_MAX - M_X_MIN) - SENSOR_SIGN[6]*0.5;
+    output[1] = (float)(SENSOR_SIGN[7] * (data[7] - M_Y_MIN)) / (M_Y_MAX - M_Y_MIN) - SENSOR_SIGN[7]*0.5;
+    output[2] = (float)(SENSOR_SIGN[8] * (data[8] - M_Z_MIN)) / (M_Z_MAX - M_Z_MIN) - SENSOR_SIGN[8]*0.5;
 
     return output;
 }
