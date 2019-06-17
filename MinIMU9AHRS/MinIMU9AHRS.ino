@@ -38,9 +38,9 @@ with MinIMU-9-Arduino-AHRS. If not, see <http://www.gnu.org/licenses/>.
 // Positive pitch : nose up
 // Positive roll : right wing down
 // Positive yaw : clockwise
-int SENSOR_SIGN[9] = { 1,  1,  1,
-                      -1, -1, -1,
-                       1,  1,  1};
+float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
+                        -1.0f, -1.0f, -1.0f,
+                         1.0f,  1.0f,  1.0f};
 
 // tested with Arduino Uno with ATmega328 and Arduino Duemilanove with ATMega168
 
@@ -51,13 +51,11 @@ int SENSOR_SIGN[9] = { 1,  1,  1,
 // accelerometer: 8 g sensitivity
 // 3.9 mg/digit; 1 g = 256
 #define GRAVITY             256  //this equivalent to 1G in the raw data coming from the accelerometer
-#define NULL_VECTOR         {0, 0, 0}
 
 #define ToRad(x)            ((x) * 0.01745329252)  // *pi/180
 #define ToDeg(x)            ((x) * 57.2957795131)  // *180/pi
 
-#define FREQUENCY_UPDATE    20  // [ms]
-#define FREQUENCY_COMPASS   100 // [ms] -> 10Hz
+#define FREQUENCY_ESTIMATOR 20  // [ms]
 
 // gyro: 2000 dps full scale
 // 70 mdps/digit; 1 dps = 0.07
@@ -78,11 +76,6 @@ int SENSOR_SIGN[9] = { 1,  1,  1,
 #define M_Y_MAX             +1000
 #define M_Z_MAX             +1000
 
-#define Kp_ROLLPITCH        0.02
-#define Ki_ROLLPITCH        0.00002
-#define Kp_YAW              1.2
-#define Ki_YAW              0.00002
-
 /*For debugging purposes*/
 //OUTPUTMODE=1 will print the corrected data,
 //OUTPUTMODE=0 will print uncorrected data of the gyros (with drift)
@@ -94,44 +87,19 @@ int SENSOR_SIGN[9] = { 1,  1,  1,
 
 #define STATUS_LED          13
 
-float dt = 1.0f / FREQUENCY_UPDATE;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
+float dt;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
 unsigned long timer = 0;   //general purpuse timer
 unsigned long timer_old;
 unsigned long timer24 = 0; //Second timer used to print values
+
 int data[6]; //array that stores the gyro and accelerometer data
-int bias[6] = {0, 0, 0, 0, 0, 0}; //Array that stores the Offset of the sensors
-
-int gyro_x;
-int gyro_y;
-int gyro_z;
-int accel_x;
-int accel_y;
-int accel_z;
-int magnetom_x;
-int magnetom_y;
-int magnetom_z;
-float c_magnetom_x;
-float c_magnetom_y;
-float c_magnetom_z;
-float MAG_Heading;
-
-float Accel_Vector[3] = NULL_VECTOR; //Store the acceleration in a vector
-float Gyro_Vector[3] = NULL_VECTOR;//Store the gyros turn rate in a vector
-float Omega_Vector[3] = NULL_VECTOR; //Corrected Gyro_Vector data
-float Omega_P[3] = NULL_VECTOR;//Omega Proportional correction
-float Omega_I[3] = NULL_VECTOR;//Omega Integrator
-float Omega[3] = NULL_VECTOR;
+float bias[6] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}; //Array that stores the Offset of the sensors
 
 // Euler angles
 float roll;
 float pitch;
 float yaw;
-
-float errorRollPitch[3] = NULL_VECTOR;
-float errorYaw[3] = NULL_VECTOR;
-
-byte gyro_sat = 0;
 
 float DCM_Matrix[3][3] = {
     {1, 0, 0},
@@ -151,8 +119,7 @@ float Temporary_Matrix[3][3] = {
     {0, 0, 0}
 };
 
-Timer _frequency_rate(FREQUENCY_UPDATE);
-Timer _frequency_compass(FREQUENCY_COMPASS);
+Timer _frequency_estimator(FREQUENCY_ESTIMATOR);
 
 void setup()
 {
@@ -161,37 +128,24 @@ void setup()
     pinMode(STATUS_LED, OUTPUT);
     digitalWrite(STATUS_LED, LOW);
 
-    I2C_Init();
+    I2CInit();
     
     Serial.println("Pololu MinIMU-9 + Arduino AHRS");
 
     /* define tasks frequency */
-    _frequency_rate.start((unsigned long) millis());
-    _frequency_compass.start((unsigned long) millis());
+    _frequency_estimator.start((unsigned long) millis());
     
     delay(1500);
     
     /* Sensors initialization */
-    Accel_Init();
-    Compass_Init();
-    Gyro_Init();
+    SensorsInit();
+    MagnetoInit();
+    GyroInit();
     
     delay(20);
 
-    /* Compute bias */
-    for(int i = 0; i < 32; i++){
-        Read_Gyro();
-        Read_Accel();
-
-        for(int y = 0; y < 6; y++)
-            bias[y] += data[y];
-        delay(20);
-    }
-    
-    for(int y = 0; y < 6; y++)
-        bias[y] = bias[y] / 32;
-    
-    bias[5] -= GRAVITY * SENSOR_SIGN[5];
+    // Compute bias
+    // bias[5] -= GRAVITY * SENSOR_SIGN[5];
 
     Serial.println("Offset:");
     for(int y = 0; y < 6; y++)
@@ -206,31 +160,14 @@ void setup()
 
 void loop()
 {
-
-    if(_frequency_compass.delay(millis())) {
-            Read_Compass();    // Read I2C magnetometer
-            Compass_Heading(); // Calculate magnetic heading
-    }
-
-    if(_frequency_rate.delay(millis())) {
+    if(_frequency_estimator.delay(millis())) {
         timer_old = timer;
         timer = millis();
         dt = (timer - timer_old) / 1000.0;
     
-        // *** DCM algorithm
-        // Data adquisition
-        Read_Gyro();        // This read gyro data
-        Read_Accel();       // Read I2C accelerometer
+        ReadGyro();
+        ReadAccelero();
 
-        // Calculations...
-        Matrix_update();
-        Normalize();
-        Drift_correction();
-        Euler_angles();
-    
-        printdata();
     }
-
-
 
 }

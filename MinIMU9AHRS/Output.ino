@@ -53,12 +53,12 @@ void printdata(void)
       Serial.print(data[4]);
       Serial.print (",");
       Serial.print(data[5]);
-      Serial.print(",");
-      Serial.print(c_magnetom_x);
-      Serial.print (",");
-      Serial.print(c_magnetom_y);
-      Serial.print (",");
-      Serial.print(c_magnetom_z);
+      // Serial.print(",");
+      // Serial.print(c_magnetom_x);
+      // Serial.print (",");
+      // Serial.print(c_magnetom_y);
+      // Serial.print (",");
+      // Serial.print(c_magnetom_z);
       #endif
       #if PRINT_DCM == 1
       Serial.print (",DCM:");

@@ -29,125 +29,136 @@ with MinIMU-9-Arduino-AHRS. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #ifdef IMU_V5
-
 #include <LSM6.h>
 #include <LIS3MDL.h>
-
-LSM6 gyro_acc;
-LIS3MDL mag;
-
+LSM6 lsm6_sensor;
+LIS3MDL lis3mdl_sensor;
 #else // older IMUs through v4
-
 #include <L3G.h>
 #include <LSM303.h>
-
-L3G gyro;
-LSM303 compass;
-
+L3G l3g_sensor;
+LSM303 lsm303_sensor;
 #endif
 
-
-void I2C_Init()
+void I2CInit()
 {
     Wire.begin();
 }
 
-void Gyro_Init()
+void GyroInit()
 {
 #ifdef IMU_V5
-    // Accel_Init() should have already called gyro_acc.init() datad enableDefault()
-    gyro_acc.writeReg(LSM6::CTRL2_G, 0x4C); // 104 Hz, 2000 dps full scale
+    // Sensors_Init() should have already called lsm6_sensor.init() datad enableDefault()
+    lsm6_sensor.writeReg(LSM6::CTRL2_G, 0x4C); // 104 Hz, 2000 dps full scale
 #else
-    gyro.init();
-    gyro.enableDefault();
-    gyro.writeReg(L3G::CTRL_REG4, 0x20); // 2000 dps full scale
-    gyro.writeReg(L3G::CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
+    l3g_sensor.init();
+    l3g_sensor.enableDefault();
+    l3g_sensor.writeReg(L3G::CTRL_REG4, 0x20); // 2000 dps full scale
+    l3g_sensor.writeReg(L3G::CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
 #endif
 }
 
-void Read_Gyro() {
+void SensorsInit() {
 #ifdef IMU_V5
-    gyro_acc.readGyro();
-
-    data[0] = gyro_acc.g.x;
-    data[1] = gyro_acc.g.y;
-    data[2] = gyro_acc.g.z;
+    lsm6_sensor.init();
+    lsm6_sensor.enableDefault();
+    lsm6_sensor.writeReg(LSM6::CTRL1_XL, 0x3C); // 52 Hz, 8 g full scale
 #else
-    gyro.read();
-
-    data[0] = gyro.g.x;
-    data[1] = gyro.g.y;
-    data[2] = gyro.g.z;
-#endif
-
-    gyro_x = SENSOR_SIGN[0] * (data[0] - bias[0]);
-    gyro_y = SENSOR_SIGN[1] * (data[1] - bias[1]);
-    gyro_z = SENSOR_SIGN[2] * (data[2] - bias[2]);
-}
-
-void Accel_Init() {
-#ifdef IMU_V5
-    gyro_acc.init();
-    gyro_acc.enableDefault();
-    gyro_acc.writeReg(LSM6::CTRL1_XL, 0x3C); // 52 Hz, 8 g full scale
-#else
-    compass.init();
-    compass.enableDefault();
-    switch (compass.getDeviceType()) {
+    lsm303_sensor.init();
+    lsm303_sensor.enableDefault();
+    switch (lsm303_sensor.getDeviceType()) {
     case LSM303::device_D:
-        compass.writeReg(LSM303::CTRL2, 0x18); // 8 g full scale: AFS = 011
+        lsm303_sensor.writeReg(LSM303::CTRL2, 0x18); // 8 g full scale: AFS = 011
         break;
     case LSM303::device_DLHC:
-        compass.writeReg(LSM303::CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10; high resolution output mode
+        lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10; high resolution output mode
         break;
     default: // DLM, DLH
-        compass.writeReg(LSM303::CTRL_REG4_A, 0x30); // 8 g full scale: FS = 11
+        lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x30); // 8 g full scale: FS = 11
   }
 #endif
 }
 
-// Reads x,y datad z accelerometer registers
-void Read_Accel() {
+void MagnetoInit() {
 #ifdef IMU_V5
-    gyro_acc.readAcc();
-
-    data[3] = gyro_acc.a.x >> 4; // shift right 4 bits to use 12-bit representation (1 g = 256)
-    data[4] = gyro_acc.a.y >> 4;
-    data[5] = gyro_acc.a.z >> 4;
+    lis3mdl_sensor.init();
+    lis3mdl_sensor.enableDefault();
 #else
-    compass.readAcc();
-
-    data[3] = compass.a.x >> 4; // shift right 4 bits to use 12-bit representation (1 g = 256)
-    data[4] = compass.a.y >> 4;
-    data[5] = compass.a.z >> 4;
-#endif
-    accel_x = SENSOR_SIGN[3] * (data[3] - bias[3]);
-    accel_y = SENSOR_SIGN[4] * (data[4] - bias[4]);
-    accel_z = SENSOR_SIGN[5] * (data[5] - bias[5]);
-}
-
-void Compass_Init() {
-#ifdef IMU_V5
-    mag.init();
-    mag.enableDefault();
-#else
-    // LSM303: doesn't need to do dataything because Accel_Init() should have already called compass.enableDefault()
+    // LSM303: doesn't need to do dataything because Sensors_Init() should have already called lsm303_sensor.enableDefault()
 #endif
 }
 
-void Read_Compass() {
+float *ReadGyro() {
+    float data[3];
+    float output[3];
+
 #ifdef IMU_V5
-    mag.read();
+    lsm6_sensor.readGyro();
 
-    magnetom_x = SENSOR_SIGN[6] * mag.m.x;
-    magnetom_y = SENSOR_SIGN[7] * mag.m.y;
-    magnetom_z = SENSOR_SIGN[8] * mag.m.z;
+    data[0] = lsm6_sensor.g.x;
+    data[1] = lsm6_sensor.g.y;
+    data[2] = lsm6_sensor.g.z;
 #else
-    compass.readMag();
+    l3g_sensor.read();
 
-    magnetom_x = SENSOR_SIGN[6] * compass.m.x;
-    magnetom_y = SENSOR_SIGN[7] * compass.m.y;
-    magnetom_z = SENSOR_SIGN[8] * compass.m.z;
+    data[0] = l3g_sensor.g.x;
+    data[1] = l3g_sensor.g.y;
+    data[2] = l3g_sensor.g.z;
 #endif
+
+    output[0] = SENSOR_SIGN[0] * data[0];
+    output[1] = SENSOR_SIGN[1] * data[1];
+    output[2] = SENSOR_SIGN[2] * data[2];
+
+    return output;
+}
+
+float *ReadAccelero() {
+    float data[3];
+    float output[3];
+
+#ifdef IMU_V5
+    lsm6_sensor.readAcc();
+
+    data[3] = lsm6_sensor.a.x >> 4; // shift right 4 bits to use 12-bit representation (1 g = 256)
+    data[4] = lsm6_sensor.a.y >> 4;
+    data[5] = lsm6_sensor.a.z >> 4;
+#else
+    lsm303_sensor.readAcc();
+
+    data[3] = lsm303_sensor.a.x >> 4; // shift right 4 bits to use 12-bit representation (1 g = 256)
+    data[4] = lsm303_sensor.a.y >> 4;
+    data[5] = lsm303_sensor.a.z >> 4;
+#endif
+
+    output[0] = SENSOR_SIGN[3] * data[3];
+    output[1] = SENSOR_SIGN[4] * data[4];
+    output[2] = SENSOR_SIGN[5] * data[5];
+
+    return output;
+}
+
+float *ReadMagneto() {
+    float data[3];
+    float output[3];
+
+#ifdef IMU_V5
+    lis3mdl_sensor.read();
+
+    data[0] = SENSOR_SIGN[6] * lis3mdl_sensor.m.x;
+    data[1] = SENSOR_SIGN[7] * lis3mdl_sensor.m.y;
+    data[2] = SENSOR_SIGN[8] * lis3mdl_sensor.m.z;
+#else
+    lsm303_sensor.readMag();
+
+    data[0] = SENSOR_SIGN[6] * lsm303_sensor.m.x;
+    data[1] = SENSOR_SIGN[7] * lsm303_sensor.m.y;
+    data[2] = SENSOR_SIGN[8] * lsm303_sensor.m.z;
+#endif
+    output[0] = SENSOR_SIGN[6] * data[6];
+    output[1] = SENSOR_SIGN[7] * data[7];
+    output[2] = SENSOR_SIGN[8] * data[8];
+
+    return output;
 }
 
