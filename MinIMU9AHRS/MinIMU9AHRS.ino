@@ -40,10 +40,11 @@ with MinIMU-9-Arduino-AHRS. If not, see <http://www.gnu.org/licenses/>.
 // Positive yaw : clockwise
 int SENSOR_SIGN[9] = { 1,  1,  1,
                       -1, -1, -1,
-                       1, 1,  1};
+                       1,  1,  1};
 
 // tested with Arduino Uno with ATmega328 and Arduino Duemilanove with ATMega168
 
+#include <Timer.h>
 #include <Wire.h>
 
 // accelerometer: 8 g sensitivity
@@ -51,8 +52,11 @@ int SENSOR_SIGN[9] = { 1,  1,  1,
 #define GRAVITY             256  //this equivalent to 1G in the raw data coming from the accelerometer
 #define NULL_VECTOR         {0, 0, 0}
 
-#define ToRad(x)            ((x)*0.01745329252)  // *pi/180
-#define ToDeg(x)            ((x)*57.2957795131)  // *180/pi
+#define ToRad(x)            ((x) * 0.01745329252)  // *pi/180
+#define ToDeg(x)            ((x) * 57.2957795131)  // *180/pi
+
+#define FREQUENCY_UPDATE    20  // [ms]
+#define FREQUENCY_COMPASS   100 // [ms] -> 10Hz
 
 // gyro: 2000 dps full scale
 // 70 mdps/digit; 1 dps = 0.07
@@ -81,15 +85,15 @@ int SENSOR_SIGN[9] = { 1,  1,  1,
 /*For debugging purposes*/
 //OUTPUTMODE=1 will print the corrected data,
 //OUTPUTMODE=0 will print uncorrected data of the gyros (with drift)
-#define OUTPUTMODE 1
+#define OUTPUTMODE          1
 
-#define PRINT_DCM 0     //Will print the whole direction cosine matrix
-#define PRINT_ANALOGS 0 //Will print the analog raw data
-#define PRINT_EULER 1   //Will print the Euler angles Roll, Pitch and Yaw
+#define PRINT_DCM           0     //Will print the whole direction cosine matrix
+#define PRINT_ANALOGS       0 //Will print the analog raw data
+#define PRINT_EULER         1   //Will print the Euler angles Roll, Pitch and Yaw
 
-#define STATUS_LED 13
+#define STATUS_LED          13
 
-float G_Dt = 0.02;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
+float dt = 1.0f / FREQUENCY_UPDATE;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
 long timer = 0;   //general purpuse timer
 long timer_old;
@@ -147,14 +151,24 @@ float Temporary_Matrix[3][3] = {
     {0, 0, 0}
 };
 
+
+Timer _frequency_rate(FREQUENCY_UPDATE);
+Timer _frequency_compass(FREQUENCY_COMPASS);
+
+
 void setup()
 {
     Serial.begin(115200);
-    pinMode (STATUS_LED, OUTPUT);  // Status LED
+    pinMode (STATUS_LED, OUTPUT);
     
     I2C_Init();
     
     Serial.println("Pololu MinIMU-9 + Arduino AHRS");
+
+    /* define tasks frequency */
+    _frequency_rate.start((unsigned long) millis());
+    _frequency_compass.start((unsigned long) millis());
+
     
     digitalWrite(STATUS_LED, LOW);
     delay(1500);
@@ -164,12 +178,13 @@ void setup()
     Gyro_Init();
     
     delay(20);
-    
+
+    /* Compute bias */
     for(int i = 0; i < 32; i++){
         Read_Gyro();
         Read_Accel();
 
-        for(int y = 0; y < 6; y++)   // Cumulate values
+        for(int y = 0; y < 6; y++)
             AN_OFFSET[y] += AN[y];
         delay(20);
     }
@@ -179,50 +194,44 @@ void setup()
     
     AN_OFFSET[5] -= GRAVITY*SENSOR_SIGN[5];
 
-    //Serial.println("Offset:");
+    Serial.println("Offset:");
     for(int y = 0; y < 6; y++)
         Serial.println(AN_OFFSET[y]);
     
     delay(2000);
-     digitalWrite(STATUS_LED,HIGH);
+    digitalWrite(STATUS_LED,HIGH);
 
-    timer=millis();
+    timer = millis();
     delay(20);
-    counter=0;
 }
 
-void loop() {
-    if((millis()-timer)>=20) {
-        counter++;
+void loop()
+{
+
+    if(_frequency_compass.delay(millis())) {
+            Read_Compass();    // Read I2C magnetometer
+            Compass_Heading(); // Calculate magnetic heading
+    }
+
+    if(_frequency_rate.delay(millis())) {
         timer_old = timer;
         timer = millis();
-        if (timer > timer_old) {
-            G_Dt = (timer - timer_old) / 1000.0;    // Real time of loop run. We use this on the DCM algorithm (gyro integration time)
-            if (G_Dt > 0.2)
-                G_Dt = 0.0; // ignore integration times over 200 ms
-        } else
-            G_Dt = 0.0;
+        dt = (timer - timer_old) / 1000.0;
     
-    
-            // *** DCM algorithm
-            // Data adquisition
-            Read_Gyro();   // This read gyro data
-            Read_Accel();     // Read I2C accelerometer
-    
-            if (counter > 5)  // Read compass data at 10Hz... (5 loop runs)
-            {
-                counter = 0;
-                Read_Compass();    // Read I2C magnetometer
-                Compass_Heading(); // Calculate magnetic heading
-            }
-    
-            // Calculations...
-            Matrix_update();
-            Normalize();
-            Drift_correction();
-            Euler_angles();
+        // *** DCM algorithm
+        // Data adquisition
+        Read_Gyro();   // This read gyro data
+        Read_Accel();     // Read I2C accelerometer
+
+        // Calculations...
+        Matrix_update();
+        Normalize();
+        Drift_correction();
+        Euler_angles();
     
         printdata();
     }
+
+
 
 }

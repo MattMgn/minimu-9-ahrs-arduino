@@ -124,23 +124,23 @@ void Matrix_update(void)
   
  #if OUTPUTMODE==1         
   Update_Matrix[0][0]=0;
-  Update_Matrix[0][1]=-G_Dt*Omega_Vector[2];//-z
-  Update_Matrix[0][2]=G_Dt*Omega_Vector[1];//y
-  Update_Matrix[1][0]=G_Dt*Omega_Vector[2];//z
+  Update_Matrix[0][1]=-dt*Omega_Vector[2];//-z
+  Update_Matrix[0][2]=dt*Omega_Vector[1];//y
+  Update_Matrix[1][0]=dt*Omega_Vector[2];//z
   Update_Matrix[1][1]=0;
-  Update_Matrix[1][2]=-G_Dt*Omega_Vector[0];//-x
-  Update_Matrix[2][0]=-G_Dt*Omega_Vector[1];//-y
-  Update_Matrix[2][1]=G_Dt*Omega_Vector[0];//x
+  Update_Matrix[1][2]=-dt*Omega_Vector[0];//-x
+  Update_Matrix[2][0]=-dt*Omega_Vector[1];//-y
+  Update_Matrix[2][1]=dt*Omega_Vector[0];//x
   Update_Matrix[2][2]=0;
  #else                    // Uncorrected data (no drift correction)
   Update_Matrix[0][0]=0;
-  Update_Matrix[0][1]=-G_Dt*Gyro_Vector[2];//-z
-  Update_Matrix[0][2]=G_Dt*Gyro_Vector[1];//y
-  Update_Matrix[1][0]=G_Dt*Gyro_Vector[2];//z
+  Update_Matrix[0][1]=-dt*Gyro_Vector[2];//-z
+  Update_Matrix[0][2]=dt*Gyro_Vector[1];//y
+  Update_Matrix[1][0]=dt*Gyro_Vector[2];//z
   Update_Matrix[1][1]=0;
-  Update_Matrix[1][2]=-G_Dt*Gyro_Vector[0];
-  Update_Matrix[2][0]=-G_Dt*Gyro_Vector[1];
-  Update_Matrix[2][1]=G_Dt*Gyro_Vector[0];
+  Update_Matrix[1][2]=-dt*Gyro_Vector[0];
+  Update_Matrix[2][0]=-dt*Gyro_Vector[1];
+  Update_Matrix[2][1]=dt*Gyro_Vector[0];
   Update_Matrix[2][2]=0;
  #endif
 
