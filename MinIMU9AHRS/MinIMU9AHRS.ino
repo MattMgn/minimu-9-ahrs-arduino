@@ -46,6 +46,7 @@ int SENSOR_SIGN[9] = { 1,  1,  1,
 
 #include <Timer.h>
 #include <Wire.h>
+#include <MadgwickAHRS.h>
 
 // accelerometer: 8 g sensitivity
 // 3.9 mg/digit; 1 g = 256
@@ -95,11 +96,11 @@ int SENSOR_SIGN[9] = { 1,  1,  1,
 
 float dt = 1.0f / FREQUENCY_UPDATE;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
-long timer = 0;   //general purpuse timer
-long timer_old;
-long timer24 = 0; //Second timer used to print values
-int AN[6]; //array that stores the gyro and accelerometer data
-int AN_OFFSET[6] = {0, 0, 0, 0, 0, 0}; //Array that stores the Offset of the sensors
+unsigned long timer = 0;   //general purpuse timer
+unsigned long timer_old;
+unsigned long timer24 = 0; //Second timer used to print values
+int data[6]; //array that stores the gyro and accelerometer data
+int bias[6] = {0, 0, 0, 0, 0, 0}; //Array that stores the Offset of the sensors
 
 int gyro_x;
 int gyro_y;
@@ -130,7 +131,6 @@ float yaw;
 float errorRollPitch[3] = NULL_VECTOR;
 float errorYaw[3] = NULL_VECTOR;
 
-unsigned int counter = 0;
 byte gyro_sat = 0;
 
 float DCM_Matrix[3][3] = {
@@ -151,16 +151,16 @@ float Temporary_Matrix[3][3] = {
     {0, 0, 0}
 };
 
-
 Timer _frequency_rate(FREQUENCY_UPDATE);
 Timer _frequency_compass(FREQUENCY_COMPASS);
-
 
 void setup()
 {
     Serial.begin(115200);
-    pinMode (STATUS_LED, OUTPUT);
-    
+
+    pinMode(STATUS_LED, OUTPUT);
+    digitalWrite(STATUS_LED, LOW);
+
     I2C_Init();
     
     Serial.println("Pololu MinIMU-9 + Arduino AHRS");
@@ -168,11 +168,10 @@ void setup()
     /* define tasks frequency */
     _frequency_rate.start((unsigned long) millis());
     _frequency_compass.start((unsigned long) millis());
-
     
-    digitalWrite(STATUS_LED, LOW);
     delay(1500);
     
+    /* Sensors initialization */
     Accel_Init();
     Compass_Init();
     Gyro_Init();
@@ -185,18 +184,18 @@ void setup()
         Read_Accel();
 
         for(int y = 0; y < 6; y++)
-            AN_OFFSET[y] += AN[y];
+            bias[y] += data[y];
         delay(20);
     }
     
     for(int y = 0; y < 6; y++)
-        AN_OFFSET[y] = AN_OFFSET[y]/32;
+        bias[y] = bias[y] / 32;
     
-    AN_OFFSET[5] -= GRAVITY*SENSOR_SIGN[5];
+    bias[5] -= GRAVITY * SENSOR_SIGN[5];
 
     Serial.println("Offset:");
     for(int y = 0; y < 6; y++)
-        Serial.println(AN_OFFSET[y]);
+        Serial.println(bias[y]);
     
     delay(2000);
     digitalWrite(STATUS_LED,HIGH);
@@ -220,8 +219,8 @@ void loop()
     
         // *** DCM algorithm
         // Data adquisition
-        Read_Gyro();   // This read gyro data
-        Read_Accel();     // Read I2C accelerometer
+        Read_Gyro();        // This read gyro data
+        Read_Accel();       // Read I2C accelerometer
 
         // Calculations...
         Matrix_update();

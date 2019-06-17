@@ -123,34 +123,34 @@ void Matrix_update(void)
   //Accel_adjust();    //Remove centrifugal acceleration.   We are not using this function in this version - we have no speed measurement
   
  #if OUTPUTMODE==1         
-  Update_Matrix[0][0]=0;
-  Update_Matrix[0][1]=-dt*Omega_Vector[2];//-z
-  Update_Matrix[0][2]=dt*Omega_Vector[1];//y
-  Update_Matrix[1][0]=dt*Omega_Vector[2];//z
-  Update_Matrix[1][1]=0;
-  Update_Matrix[1][2]=-dt*Omega_Vector[0];//-x
-  Update_Matrix[2][0]=-dt*Omega_Vector[1];//-y
-  Update_Matrix[2][1]=dt*Omega_Vector[0];//x
-  Update_Matrix[2][2]=0;
+  Update_Matrix[0][0] = 0;
+  Update_Matrix[0][1] = -dt*Omega_Vector[2];//-z
+  Update_Matrix[0][2] = dt*Omega_Vector[1];//y
+  Update_Matrix[1][0] = dt*Omega_Vector[2];//z
+  Update_Matrix[1][1] = 0;
+  Update_Matrix[1][2] = -dt*Omega_Vector[0];//-x
+  Update_Matrix[2][0] = -dt*Omega_Vector[1];//-y
+  Update_Matrix[2][1] = dt*Omega_Vector[0];//x
+  Update_Matrix[2][2] = 0;
  #else                    // Uncorrected data (no drift correction)
-  Update_Matrix[0][0]=0;
-  Update_Matrix[0][1]=-dt*Gyro_Vector[2];//-z
-  Update_Matrix[0][2]=dt*Gyro_Vector[1];//y
-  Update_Matrix[1][0]=dt*Gyro_Vector[2];//z
-  Update_Matrix[1][1]=0;
-  Update_Matrix[1][2]=-dt*Gyro_Vector[0];
-  Update_Matrix[2][0]=-dt*Gyro_Vector[1];
-  Update_Matrix[2][1]=dt*Gyro_Vector[0];
-  Update_Matrix[2][2]=0;
+  Update_Matrix[0][0] = 0;
+  Update_Matrix[0][1] = -dt*Gyro_Vector[2];//-z
+  Update_Matrix[0][2] = dt*Gyro_Vector[1];//y
+  Update_Matrix[1][0] = dt*Gyro_Vector[2];//z
+  Update_Matrix[1][1] = 0;
+  Update_Matrix[1][2] = -dt*Gyro_Vector[0];
+  Update_Matrix[2][0] = -dt*Gyro_Vector[1];
+  Update_Matrix[2][1] = dt*Gyro_Vector[0];
+  Update_Matrix[2][2] = 0;
  #endif
 
   Matrix_Multiply(DCM_Matrix,Update_Matrix,Temporary_Matrix); //a*b=c
 
-  for(int x=0; x<3; x++) //Matrix Addition (update)
+  for(int x = 0; x<3; x++) //Matrix Addition (update)
   {
-    for(int y=0; y<3; y++)
+    for(int y = 0; y<3; y++)
     {
-      DCM_Matrix[x][y]+=Temporary_Matrix[x][y];
+      DCM_Matrix[x][y] += Temporary_Matrix[x][y];
     } 
   }
 }

@@ -33,26 +33,26 @@ void printdata(void)
       Serial.print("!");
 
       #if PRINT_EULER == 1
-      Serial.print("ANG:");
+      Serial.print("angG:");
       Serial.print(ToDeg(roll));
       Serial.print(",");
       Serial.print(ToDeg(pitch));
       Serial.print(",");
       Serial.print(ToDeg(yaw));
       #endif      
-      #if PRINT_ANALOGS==1
-      Serial.print(",AN:");
-      Serial.print(AN[0]);  //(int)read_adc(0)
+      #if PRINT_dataALOGS==1
+      Serial.print(",ang:");
+      Serial.print(data[0]);  //(int)read_adc(0)
       Serial.print(",");
-      Serial.print(AN[1]);
+      Serial.print(data[1]);
       Serial.print(",");
-      Serial.print(AN[2]);  
+      Serial.print(data[2]);
       Serial.print(",");
-      Serial.print(AN[3]);
+      Serial.print(data[3]);
       Serial.print (",");
-      Serial.print(AN[4]);
+      Serial.print(data[4]);
       Serial.print (",");
-      Serial.print(AN[5]);
+      Serial.print(data[5]);
       Serial.print(",");
       Serial.print(c_magnetom_x);
       Serial.print (",");
