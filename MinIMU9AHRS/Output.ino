@@ -32,7 +32,7 @@ void printdata()
 {   
       Serial.print("!");
 
-      if (PRINT_RAW_DATA) {
+      if (PRINT_DATA_RAW) {
             Serial.print("gyro_raw:");
             Serial.print(gyro_raw[0] * RAD_TO_DEG, FLOATING_PRECISION);
             Serial.print(",");
@@ -42,11 +42,11 @@ void printdata()
             Serial.print(",");
             Serial.print("accelero_raw:");
             Serial.print (",");
-            Serial.print(acc_raw[0], FLOATING_PRECISION);
+            Serial.print(acc_raw[0] * G_TO_MS2, FLOATING_PRECISION);
             Serial.print (",");
-            Serial.print(acc_raw[1], FLOATING_PRECISION);
+            Serial.print(acc_raw[1] * G_TO_MS2, FLOATING_PRECISION);
             Serial.print (",");
-            Serial.print(acc_raw[2], FLOATING_PRECISION);
+            Serial.print(acc_raw[2] * G_TO_MS2, FLOATING_PRECISION);
             Serial.print (",");
             Serial.print("mag_raw:");
             Serial.print(mag_raw[0], FLOATING_PRECISION);
@@ -78,6 +78,18 @@ void printdata()
             Serial.print(mag[1], FLOATING_PRECISION);
             Serial.print (",");
             Serial.print(mag[2], FLOATING_PRECISION);
+            Serial.print (",");
+      }
+
+      if (PRINT_EULER_ANGLES) {
+            Serial.print("roll:");
+            Serial.print(angle_est[0], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print("pitch:");
+            Serial.print(angle_est[1], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print("yaw:");
+            Serial.print(angle_est[2], FLOATING_PRECISION);
             Serial.print (",");
       }
 
