@@ -49,13 +49,13 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 #include <MadgwickAHRS.h>
 
 
-#define GRAVITY             9.81                   //  [m/s^Z]
+#define GRAVITY             9.81                   //  [m/s^2]
 
 #define DEG_TO_RAD          0.01745329252
 #define RAD_TO_DEG          57.2957795131
-#define G_TO_MS2            1.0 / GRAVITY
+#define G_TO_MS2            GRAVITY
 
-#define FREQUENCY_ESTIMATOR 20  // [ms]
+#define FREQUENCY_ESTIMATOR 5  // [ms]
 #define FREQUENCY_PRINT     250 // [ms]
 
 #define BIAS_MEASURE_LENGTH 1000
@@ -81,8 +81,9 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 #define M_Z_MAX             +1000
 
 #define PRINT_BIAS          1
-#define PRINT_RAW_DATA      0
-#define PRINT_DATA          1
+#define PRINT_DATA_RAW      0
+#define PRINT_DATA          0
+#define PRINT_EULER_ANGLES  1
 
 #define FLOATING_PRECISION  3
 
@@ -156,7 +157,7 @@ void setup()
         gyro_bias[i] = gyro_bias[i] / (BIAS_MEASURE_LENGTH);
         acc_bias[i] = acc_bias[i] / (BIAS_MEASURE_LENGTH);
     }
-    acc_bias[2] += GRAVITY;
+    acc_bias[2] -= 1.0; // g
 
     if (PRINT_BIAS) {
         Serial.println("Gyro bias:");
@@ -171,6 +172,8 @@ void setup()
         }
     }
 
+    /* Initialize estimator */
+    estimator.begin(FREQUENCY_ESTIMATOR);
     
     delay(500);
     digitalWrite(STATUS_LED, HIGH);
@@ -192,9 +195,15 @@ void loop()
             acc[i] = acc_raw[i] - acc_bias[i];
         }
 
+        /* Compute estimated attitude */
         timer = millis();
         dt = (float)(timer - prev_timer) / 1000.0f;
         prev_timer = timer;
+        estimator.updateIMU(dt, gyro[0] * DEG_TO_RAD, gyro[1] * DEG_TO_RAD, gyro[2] * DEG_TO_RAD, acc[0], acc[1], acc[2]);
+
+        angle_est[0] = estimator.getRoll();
+        angle_est[1] = estimator.getPitch();
+        angle_est[2] = estimator.getYaw();
     }
 
     if(_frequency_print.delay(millis())) {
