@@ -28,64 +28,59 @@ with MinIMU-9-Arduino-AHRS. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-void printdata(void)
+void printdata()
 {   
       Serial.print("!");
 
-      #if PRINT_EULER == 1
-      Serial.print("angG:");
-      Serial.print(ToDeg(roll));
-      Serial.print(",");
-      Serial.print(ToDeg(pitch));
-      Serial.print(",");
-      Serial.print(ToDeg(yaw));
-      #endif      
-      #if PRINT_dataALOGS==1
-      Serial.print(",ang:");
-      Serial.print(data[0]);  //(int)read_adc(0)
-      Serial.print(",");
-      Serial.print(data[1]);
-      Serial.print(",");
-      Serial.print(data[2]);
-      Serial.print(",");
-      Serial.print(data[3]);
-      Serial.print (",");
-      Serial.print(data[4]);
-      Serial.print (",");
-      Serial.print(data[5]);
-      // Serial.print(",");
-      // Serial.print(c_magnetom_x);
-      // Serial.print (",");
-      // Serial.print(c_magnetom_y);
-      // Serial.print (",");
-      // Serial.print(c_magnetom_z);
-      #endif
-      #if PRINT_DCM == 1
-      Serial.print (",DCM:");
-      Serial.print(DCM_Matrix[0][0]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[0][1]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[0][2]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[1][0]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[1][1]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[1][2]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[2][0]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[2][1]);
-      Serial.print (",");
-      Serial.print(DCM_Matrix[2][2]);
-      #endif
+      if (PRINT_RAW_DATA) {
+            Serial.print("gyro_raw:");
+            Serial.print(gyro_raw[0] * RAD_TO_DEG, FLOATING_PRECISION);
+            Serial.print(",");
+            Serial.print(gyro_raw[1] * RAD_TO_DEG, FLOATING_PRECISION);
+            Serial.print(",");
+            Serial.print(gyro_raw[2] * RAD_TO_DEG, FLOATING_PRECISION);
+            Serial.print(",");
+            Serial.print("accelero_raw:");
+            Serial.print (",");
+            Serial.print(acc_raw[0], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(acc_raw[1], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(acc_raw[2], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print("mag_raw:");
+            Serial.print(mag_raw[0], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(mag_raw[1], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(mag_raw[2], FLOATING_PRECISION);
+            Serial.print (",");
+      }
+
+      if (PRINT_DATA) {
+            Serial.print("gyro:");
+            Serial.print(gyro[0] * RAD_TO_DEG, FLOATING_PRECISION);
+            Serial.print(",");
+            Serial.print(gyro[1] * RAD_TO_DEG, FLOATING_PRECISION);
+            Serial.print(",");
+            Serial.print(gyro[2] * RAD_TO_DEG, FLOATING_PRECISION);
+            Serial.print(",");
+            Serial.print("accelero:");
+            Serial.print(acc[0] * G_TO_MS2, FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(acc[1] * G_TO_MS2, FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(acc[2] * G_TO_MS2, FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print("mag:");
+            Serial.print(mag[0], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(mag[1], FLOATING_PRECISION);
+            Serial.print (",");
+            Serial.print(mag[2], FLOATING_PRECISION);
+            Serial.print (",");
+      }
+
       Serial.println();
       
 }
-
-/*long convert_to_dec(float x)
-{
-  return x*10000000;
-}*/
-
