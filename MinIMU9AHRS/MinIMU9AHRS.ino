@@ -48,23 +48,27 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 #include <Wire.h>
 #include <MadgwickAHRS.h>
 
-// accelerometer: 8 g sensitivity
-// 3.9 mg/digit; 1 g = 256
-#define GRAVITY             256  //this equivalent to 1G in the raw data coming from the accelerometer
 
-#define ToRad(x)            ((x) * 0.01745329252)  // *pi/180
-#define ToDeg(x)            ((x) * 57.2957795131)  // *180/pi
+#define GRAVITY             9.81                   //  [m/s^Z]
+
+#define DEG_TO_RAD          0.01745329252
+#define RAD_TO_DEG          57.2957795131
+#define G_TO_MS2            1.0 / GRAVITY
 
 #define FREQUENCY_ESTIMATOR 20  // [ms]
+#define FREQUENCY_PRINT     250 // [ms]
+
+#define BIAS_MEASURE_LENGTH 1000
+
+/* Accelero Scale */
+// accelerometer: 8 g sensitivity
+// 3.9 mg/digit; 1 g = 256
+// this equivalent to 1G in the raw data coming from the accelerometer
+#define ACC_SCALE           1.0 / 256.0
 
 // gyro: 2000 dps full scale
 // 70 mdps/digit; 1 dps = 0.07
-#define Gyro_Gain_X         0.07 //X axis Gyro gain
-#define Gyro_Gain_Y         0.07 //Y axis Gyro gain
-#define Gyro_Gain_Z         0.07 //Z axis Gyro gain
-#define Gyro_Scaled_X(x)    ((x)*ToRad(Gyro_Gain_X))
-#define Gyro_Scaled_Y(x)    ((x)*ToRad(Gyro_Gain_Y))
-#define Gyro_Scaled_Z(x)    ((x)*ToRad(Gyro_Gain_Z))
+#define GYRO_SCALE          0.07 * DEG_TO_RAD
 
 // LSM303/LIS3MDL magnetometer calibration constants; use the Calibrate example from
 // the Pololu LSM303 or LIS3MDL library to find the right values for your board
@@ -76,50 +80,39 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 #define M_Y_MAX             +1000
 #define M_Z_MAX             +1000
 
-/*For debugging purposes*/
-//OUTPUTMODE=1 will print the corrected data,
-//OUTPUTMODE=0 will print uncorrected data of the gyros (with drift)
-#define OUTPUTMODE          1
+#define PRINT_BIAS          1
+#define PRINT_RAW_DATA      0
+#define PRINT_DATA          1
 
-#define PRINT_DCM           0     //Will print the whole direction cosine matrix
-#define PRINT_ANALOGS       0 //Will print the analog raw data
-#define PRINT_EULER         1   //Will print the Euler angles Roll, Pitch and Yaw
+#define FLOATING_PRECISION  3
 
 #define STATUS_LED          13
 
 float dt;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
-unsigned long timer = 0;   //general purpuse timer
-unsigned long timer_old;
-unsigned long timer24 = 0; //Second timer used to print values
+unsigned long timer = 0;    // ms
+unsigned long prev_timer;   // ms
 
-int data[6]; //array that stores the gyro and accelerometer data
-float bias[6] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f}; //Array that stores the Offset of the sensors
+/* Raw values from sensors */
+float gyro_raw[3];          // rad/s
+float acc_raw[3];           // m/s^2
+float mag_raw[3];
 
-// Euler angles
-float roll;
-float pitch;
-float yaw;
+/* Filtered and unbiased values */
+float gyro[3];          // rad/s
+float acc[3];           // m/s^2
+float mag[3];
 
-float DCM_Matrix[3][3] = {
-    {1, 0, 0},
-    {0, 1, 0},
-    {0, 0, 1}
-};
+float angle_est[3];
 
-float Update_Matrix[3][3] = {
-    {0, 1, 2},
-    {3, 4, 5},
-    {6, 7, 8}
-};
+float gyro_bias[3];
+float acc_bias[3];
 
-float Temporary_Matrix[3][3] = {
-    {0, 0, 0},
-    {0, 0, 0},
-    {0, 0, 0}
-};
+Madgwick estimator;
 
 Timer _frequency_estimator(FREQUENCY_ESTIMATOR);
+Timer _frequency_print(FREQUENCY_PRINT);
+
 
 void setup()
 {
@@ -134,6 +127,7 @@ void setup()
 
     /* define tasks frequency */
     _frequency_estimator.start((unsigned long) millis());
+    _frequency_print.start((unsigned long) millis());
     
     delay(1500);
     
@@ -144,30 +138,67 @@ void setup()
     
     delay(20);
 
-    // Compute bias
-    // bias[5] -= GRAVITY * SENSOR_SIGN[5];
+    /* Compute bias */
+    unsigned ts_start_bias = millis();
+    for (int i = 0; i < BIAS_MEASURE_LENGTH; i++) {
+        /* Gyro bias */
+        ReadGyro();
+        for (int i = 0; i < 3; i++) {
+            gyro_bias[i] += gyro_raw[i];
+        }
+        /* Accelero bias */
+        ReadAccelero();
+        for (int i = 0; i < 3; i++) {
+            acc_bias[i] += acc_raw[i];
+        }
+    }
+    for (int i = 0; i < 3; i++) {
+        gyro_bias[i] = gyro_bias[i] / (BIAS_MEASURE_LENGTH);
+        acc_bias[i] = acc_bias[i] / (BIAS_MEASURE_LENGTH);
+    }
+    acc_bias[2] += GRAVITY;
 
-    Serial.println("Offset:");
-    for(int y = 0; y < 6; y++)
-        Serial.println(bias[y]);
+    if (PRINT_BIAS) {
+        Serial.println("Gyro bias:");
+        for (int i = 0; i < 3; i++) {
+            Serial.print(gyro_bias[i] * RAD_TO_DEG, FLOATING_PRECISION);
+            Serial.println(" deg/s");
+        }
+        Serial.println("Accelero bias:");
+        for (int i = 0; i < 3; i++) {
+            Serial.print(acc_bias[i] * G_TO_MS2, FLOATING_PRECISION);
+            Serial.println(" m/s");
+        }
+    }
+
     
-    delay(2000);
-    digitalWrite(STATUS_LED,HIGH);
+    delay(500);
+    digitalWrite(STATUS_LED, HIGH);
 
-    timer = millis();
-    delay(20);
+    prev_timer = millis();
 }
 
 void loop()
 {
     if(_frequency_estimator.delay(millis())) {
-        timer_old = timer;
-        timer = millis();
-        dt = (timer - timer_old) / 1000.0;
-    
+        /* Read sensors */
         ReadGyro();
         ReadAccelero();
+        ReadMagneto();
 
+        /* Remove bias */
+        for (int i = 0; i < 3; i++) {
+            gyro[i] = gyro_raw[i] - gyro_bias[i];
+            acc[i] = acc_raw[i] - acc_bias[i];
+        }
+
+        timer = millis();
+        dt = (float)(timer - prev_timer) / 1000.0f;
+        prev_timer = timer;
+    }
+
+    if(_frequency_print.delay(millis())) {
+        printdata();
     }
 
 }
