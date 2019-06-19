@@ -30,7 +30,8 @@ with MinIMU-9-Arduino-AHRS. If not, see <http://www.gnu.org/licenses/>.
 
 void printdata()
 {   
-      Serial.print("!");
+      if (PRINT_DATA_RAW || PRINT_DATA || PRINT_EULER_ANGLES)
+            Serial.print("!");
 
       if (PRINT_DATA_RAW) {
             Serial.print("gyro_raw:");
@@ -93,6 +94,7 @@ void printdata()
             Serial.print (",");
       }
 
-      Serial.println();
+      if (PRINT_DATA_RAW || PRINT_DATA || PRINT_EULER_ANGLES)
+            Serial.println();
       
 }
