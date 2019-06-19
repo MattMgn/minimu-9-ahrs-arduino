@@ -56,7 +56,7 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 #define G_TO_MS2            GRAVITY
 
 #define FREQUENCY_ESTIMATOR 5  // [ms]
-#define FREQUENCY_PRINT     250 // [ms]
+#define FREQUENCY_PRINT     100 // [ms]
 
 #define BIAS_MEASURE_LENGTH 1000
 
@@ -66,19 +66,13 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 // this equivalent to 1G in the raw data coming from the accelerometer
 #define ACC_SCALE           1.0 / 256.0
 
+/* Magneto Scale */
+// 1.3 gauss on 2047 LSB
+#define MAGNETO_SCALE       1.3 / 2047
+
 // gyro: 2000 dps full scale
 // 70 mdps/digit; 1 dps = 0.07
 #define GYRO_SCALE          0.07 * DEG_TO_RAD
-
-// LSM303/LIS3MDL magnetometer calibration constants; use the Calibrate example from
-// the Pololu LSM303 or LIS3MDL library to find the right values for your board
-
-#define M_X_MIN             -1000
-#define M_Y_MIN             -1000
-#define M_Z_MIN             -1000
-#define M_X_MAX             +1000
-#define M_Y_MAX             +1000
-#define M_Z_MAX             +1000
 
 #define PRINT_BIAS          1
 #define PRINT_DATA_RAW      0
@@ -89,7 +83,7 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 
 #define STATUS_LED          13
 
-float dt;    // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
+float dt;                   // Integration time (DCM algorithm)  We will run the integration loop at 50Hz if possible
 
 unsigned long timer = 0;    // ms
 unsigned long prev_timer;   // ms
@@ -104,16 +98,15 @@ float gyro[3];          // rad/s
 float acc[3];           // m/s^2
 float mag[3];
 
-float angle_est[3];
-
 float gyro_bias[3];
 float acc_bias[3];
+
+float angle_est[3];
 
 Madgwick estimator;
 
 Timer _frequency_estimator(FREQUENCY_ESTIMATOR);
 Timer _frequency_print(FREQUENCY_PRINT);
-
 
 void setup()
 {
@@ -199,7 +192,8 @@ void loop()
         timer = millis();
         dt = (float)(timer - prev_timer) / 1000.0f;
         prev_timer = timer;
-        estimator.updateIMU(dt, gyro[0] * DEG_TO_RAD, gyro[1] * DEG_TO_RAD, gyro[2] * DEG_TO_RAD, acc[0], acc[1], acc[2]);
+        //estimator.updateIMU(dt, gyro[0] * DEG_TO_RAD, gyro[1] * DEG_TO_RAD, gyro[2] * DEG_TO_RAD, acc[0], acc[1], acc[2]);
+        estimator.update(dt, gyro[0] * DEG_TO_RAD, gyro[1] * DEG_TO_RAD, gyro[2] * DEG_TO_RAD, acc[0], acc[1], acc[2], mag_raw[0], mag_raw[1], mag_raw[2]);
 
         angle_est[0] = estimator.getRoll();
         angle_est[1] = estimator.getPitch();

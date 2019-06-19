@@ -73,11 +73,11 @@ void printdata()
             Serial.print(acc[2] * G_TO_MS2, FLOATING_PRECISION);
             Serial.print (",");
             Serial.print("mag:");
-            Serial.print(mag[0], FLOATING_PRECISION);
+            Serial.print(mag_raw[0], FLOATING_PRECISION);
             Serial.print (",");
-            Serial.print(mag[1], FLOATING_PRECISION);
+            Serial.print(mag_raw[1], FLOATING_PRECISION);
             Serial.print (",");
-            Serial.print(mag[2], FLOATING_PRECISION);
+            Serial.print(mag_raw[2], FLOATING_PRECISION);
             Serial.print (",");
       }
 
