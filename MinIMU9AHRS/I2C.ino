@@ -112,13 +112,9 @@ void ReadGyro() {
     data[2] = l3g_sensor.g.z;
 #endif
 
-    gyro_raw[0] = (float)((SENSOR_SIGN[0] * data[0]));
-    gyro_raw[1] = (float)((SENSOR_SIGN[1] * data[1]));
-    gyro_raw[2] = (float)((SENSOR_SIGN[2] * data[2]));
-
-    gyro_raw[0] *= GYRO_SCALE;
-    gyro_raw[1] *= GYRO_SCALE;
-    gyro_raw[2] *= GYRO_SCALE;
+    gyro_raw[0] = (float)((SENSOR_SIGN[0] * data[0])) * GYRO_SCALE;
+    gyro_raw[1] = (float)((SENSOR_SIGN[1] * data[1])) * GYRO_SCALE;
+    gyro_raw[2] = (float)((SENSOR_SIGN[2] * data[2])) * GYRO_SCALE;
 }
 
 void ReadAccelero() {
@@ -138,13 +134,9 @@ void ReadAccelero() {
     data[5] = lsm303_sensor.a.z >> 4;
 #endif
 
-    acc_raw[0] = (float)(SENSOR_SIGN[3] * data[3]);
-    acc_raw[1] = (float)(SENSOR_SIGN[4] * data[4]);
-    acc_raw[2] = (float)(SENSOR_SIGN[5] * data[5]);
-
-    acc_raw[0] *= ACC_SCALE;
-    acc_raw[1] *= ACC_SCALE;
-    acc_raw[2] *= ACC_SCALE;
+    acc_raw[0] = (float)(SENSOR_SIGN[3] * data[3]) * ACC_SCALE;
+    acc_raw[1] = (float)(SENSOR_SIGN[4] * data[4]) * ACC_SCALE;
+    acc_raw[2] = (float)(SENSOR_SIGN[5] * data[5]) * ACC_SCALE;
 }
 
 void ReadMagneto() {
@@ -153,20 +145,20 @@ void ReadMagneto() {
 #ifdef IMU_V5
     lis3mdl_sensor.read();
 
-    data[0] = SENSOR_SIGN[6] * lis3mdl_sensor.m.x;
-    data[1] = SENSOR_SIGN[7] * lis3mdl_sensor.m.y;
-    data[2] = SENSOR_SIGN[8] * lis3mdl_sensor.m.z;
+    data[0] = lis3mdl_sensor.m.x;
+    data[1] = lis3mdl_sensor.m.y;
+    data[2] = lis3mdl_sensor.m.z;
 #else
     lsm303_sensor.readMag();
 
-    data[0] = SENSOR_SIGN[6] * lsm303_sensor.m.x;
-    data[1] = SENSOR_SIGN[7] * lsm303_sensor.m.y;
-    data[2] = SENSOR_SIGN[8] * lsm303_sensor.m.z;
+    data[0] = lsm303_sensor.m.x;
+    data[1] = lsm303_sensor.m.y;
+    data[2] = lsm303_sensor.m.z;
 #endif
 
-     // adjust for LSM303 compass axis offsets/sensitivity differences by scaling to +/-0.5 range
-    mag_raw[0] = (float)(SENSOR_SIGN[6] * (data[6] - M_X_MIN)) / (M_X_MAX - M_X_MIN) - SENSOR_SIGN[6]*0.5;
-    mag_raw[1] = (float)(SENSOR_SIGN[7] * (data[7] - M_Y_MIN)) / (M_Y_MAX - M_Y_MIN) - SENSOR_SIGN[7]*0.5;
-    mag_raw[2] = (float)(SENSOR_SIGN[8] * (data[8] - M_Z_MIN)) / (M_Z_MAX - M_Z_MIN) - SENSOR_SIGN[8]*0.5;
+    /* To do: add magneto calibration */
+    mag_raw[0] = (float)(SENSOR_SIGN[6] * data[0]) * MAGNETO_SCALE;
+    mag_raw[1] = (float)(SENSOR_SIGN[7] * data[1]) * MAGNETO_SCALE;
+    mag_raw[2] = (float)(SENSOR_SIGN[8] * data[2]) * MAGNETO_SCALE;
 }
 
