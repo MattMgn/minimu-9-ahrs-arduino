@@ -53,8 +53,8 @@ void GyroInit()
 #else
     l3g_sensor.init();
     l3g_sensor.enableDefault();
+    l3g_sensor.writeReg(L3G::CTRL_REG1, 0x5F); // normal power mode, all axes enabled, Output Data Rate 190 Hz, Cut Off 25Hz
     l3g_sensor.writeReg(L3G::CTRL_REG4, 0x20); // 2000 dps full scale
-    l3g_sensor.writeReg(L3G::CTRL_REG1, 0x0F); // normal power mode, all axes enabled, 100 Hz
 #endif
 }
 
@@ -69,12 +69,19 @@ void SensorsInit() {
     switch (lsm303_sensor.getDeviceType()) {
     case LSM303::device_D:
         lsm303_sensor.writeReg(LSM303::CTRL2, 0x18); // 8 g full scale: AFS = 011
+        Serial.println("LSM303::device_D");
         break;
     case LSM303::device_DLHC:
+        /* Accelerometer */
+        lsm303_sensor.writeReg(LSM303::CTRL_REG1_A, 0x47); // Output Data Rate 50Hz
         lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10; high resolution output mode
+        /* Magnetometer */
+        // Output Data Rate 30Hz by default
+        Serial.println("LSM303::device_DLHC");
         break;
     default: // DLM, DLH
         lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x30); // 8 g full scale: FS = 11
+        Serial.println("LSM303::device_DLM/DLH");
   }
 #endif
 }
