@@ -86,6 +86,10 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 // 70 mdps/digit; 1 dps = 0.07
 #define GYRO_SCALE          0.07 * DEG_TO_RAD
 
+/* Filter parameters */
+#define betaDef         1.0f
+#define zetaDef         0.00005f
+
 #define PRINT_BIAS          0
 #define PRINT_DATA_RAW      0
 #define PRINT_DATA          0
@@ -178,12 +182,12 @@ void setup()
     acc_bias[2] -= 1.0; // g
 
     if (PRINT_BIAS) {
-        Serial.println("Gyro bias:");
+        Serial.println("Initial gyro bias:");
         for (int i = 0; i < 3; i++) {
             Serial.print(gyro_bias[i] * RAD_TO_DEG, FLOATING_PRECISION);
             Serial.println(" deg/s");
         }
-        Serial.println("Accelero bias:");
+        Serial.println("Initial accelero bias:");
         for (int i = 0; i < 3; i++) {
             Serial.print(acc_bias[i] * G_TO_MS2, FLOATING_PRECISION);
             Serial.println(" m/s");
@@ -191,7 +195,7 @@ void setup()
     }
 
     /* Initialize estimator */
-    estimator.begin(FREQUENCY_ESTIMATOR);
+    estimator.begin(betaDef, zetaDef);
     
     delay(500);
     digitalWrite(STATUS_LED, HIGH);
@@ -217,8 +221,7 @@ void loop()
         timer = millis();
         dt = (float)(timer - prev_timer) / 1000.0f;
         prev_timer = timer;
-        //estimator.updateIMU(dt, gyro[0] * DEG_TO_RAD, gyro[1] * DEG_TO_RAD, gyro[2] * DEG_TO_RAD, acc[0], acc[1], acc[2]);
-        estimator.update(dt, gyro[0] * DEG_TO_RAD, gyro[1] * DEG_TO_RAD, gyro[2] * DEG_TO_RAD, acc[0], acc[1], acc[2], mag_raw[0], mag_raw[1], mag_raw[2]);
+        estimator.update(dt, gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], mag_raw[0], mag_raw[1], mag_raw[2], &gyro_bias[0], &gyro_bias[1], &gyro_bias[2]);
 
         angle_est[0] = estimator.getRoll();
         angle_est[1] = estimator.getPitch();
