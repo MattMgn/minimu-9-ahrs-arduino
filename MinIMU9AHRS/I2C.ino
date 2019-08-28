@@ -54,7 +54,7 @@ void GyroInit()
     l3g_sensor.init();
     l3g_sensor.enableDefault();
     l3g_sensor.writeReg(L3G::CTRL_REG1, 0x5F); // normal power mode, all axes enabled, Output Data Rate 190 Hz, Cut Off 25Hz
-    l3g_sensor.writeReg(L3G::CTRL_REG4, 0x20); // 2000 dps full scale
+    l3g_sensor.writeReg(L3G::CTRL_REG4, 0x20); // 2000 dps scale
 #endif
 }
 
@@ -62,25 +62,26 @@ void SensorsInit() {
 #ifdef IMU_V5
     lsm6_sensor.init();
     lsm6_sensor.enableDefault();
-    lsm6_sensor.writeReg(LSM6::CTRL1_XL, 0x3C); // 52 Hz, 8 g full scale
+    lsm6_sensor.writeReg(LSM6::CTRL1_XL, 0x3C)
 #else
     lsm303_sensor.init();
     lsm303_sensor.enableDefault();
     switch (lsm303_sensor.getDeviceType()) {
     case LSM303::device_D:
-        lsm303_sensor.writeReg(LSM303::CTRL2, 0x18); // 8 g full scale: AFS = 011
+        lsm303_sensor.writeReg(LSM303::CTRL2, 0x18); // 8 g scale
         Serial.println("LSM303::device_D");
         break;
     case LSM303::device_DLHC:
         /* Accelerometer */
-        lsm303_sensor.writeReg(LSM303::CTRL_REG1_A, 0x47); // Output Data Rate 50Hz
-        lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x28); // 8 g full scale: FS = 10; high resolution output mode
+        lsm303_sensor.writeReg(LSM303::CTRL_REG1_A, 0x67); // ODR 200Hz
+        lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x28); // 8 g
         /* Magnetometer */
-        // Output Data Rate 30Hz by default
+        lsm303_sensor.writeReg(LSM303::CRA_REG_M, 0x10); // ODR 30Hz
+        lsm303_sensor.writeReg(LSM303::CRB_REG_M, 0x20); // 1.3 gauss
         Serial.println("LSM303::device_DLHC");
         break;
     default: // DLM, DLH
-        lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x30); // 8 g full scale: FS = 11
+        lsm303_sensor.writeReg(LSM303::CTRL_REG4_A, 0x28); // 8 g full scale: FS = 11
         Serial.println("LSM303::device_DLM/DLH");
   }
 #endif
