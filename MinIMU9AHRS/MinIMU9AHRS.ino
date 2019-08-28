@@ -28,26 +28,32 @@ with MinIMU-9-Arduino-AHRS. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-/* Enable ROS imu topic */
-#define MINIMU_ROS      1
-// rosrun rosserial_python serial_node.py _port:=/dev/ttyUSB0 _baud:=9600
+/* Uncomment this line for Arduino Due (must be placed before ros.h */
+#define USE_USBCON
 
-// Uncomment the following line to use a MinIMU-9 v5 or AltIMU-10 v5. Leave commented for older IMUs (up through v4).
+/*
+ * Enable ROS imu topic publishing
+ * run the following command to get acces to topic:
+ *      rosrun rosserial_python serial_node.py _port:=/dev/ttyUSB0 _baud:=115200
+ * WARNING: not enough dynamic memory to be activated on Arduino Nano, but
+ * succesfully tested on Arduino Mega and Due
+ */
+
+//#define MINIMU_ROS      // disable ROS imu topic by commenting this line
+//#define RAW_IMU_ROS     // disable raw imu topic by commenting this line
+
+/*
+ * Uncomment the following line to use a MinIMU-9 v5 or AltIMU-10 v5.
+ * Leave commented for older IMUs (up through v4).
+ */
 //#define IMU_V5
 
-// Uncomment the below line to use this axis definition:
-   // X axis pointing forward
-   // Y axis pointing to the right
-   // and Z axis pointing down.
 // Positive pitch : nose up
 // Positive roll : right wing down
 // Positive yaw : clockwise
 float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
                         -1.0f, -1.0f, -1.0f,
                          1.0f,  1.0f,  1.0f};
-
-// tested with Arduino Uno with ATmega328 and Arduino Duemilanove with ATMega168
-// need to console at 9600 baudrate for Arduino Mega2560
 
 #include <Timer.h>
 #include <Wire.h>
@@ -62,13 +68,11 @@ float SENSOR_SIGN[9] = { 1.0f,  1.0f,  1.0f,
 
 #define GRAVITY             9.81                   //  [m/s^2]
 
-#define DEG_TO_RAD          0.01745329252
-#define RAD_TO_DEG          57.2957795131
 #define G_TO_MS2            GRAVITY
 
-#define FREQUENCY_ESTIMATOR 5       // [ms]
+#define FREQUENCY_ESTIMATOR 100       // [ms]
 #define FREQUENCY_PRINT     100     // [ms]
-#define FREQUENCY_TOPIC     100     // [ms]
+#define FREQUENCY_TOPIC     200     // [ms]
 
 #define BIAS_MEASURE_LENGTH 1000
 
@@ -118,6 +122,7 @@ float gyro_bias[3];
 float acc_bias[3];
 
 float angle_est[3];
+float quat_est[4];
 
 Madgwick estimator;
 
@@ -127,34 +132,44 @@ Timer _frequency_print(FREQUENCY_PRINT);
 #ifdef MINIMU_ROS
 Timer _frequency_topic(FREQUENCY_TOPIC);
 ros::NodeHandle  nh;
+unsigned long seq = 0;
 sensor_msgs::Imu imu_msg;
 ros::Publisher imu_topic("/imu", &imu_msg);
-unsigned long seq = 0;
+#ifdef RAW_IMU_ROS
+sensor_msgs::Imu imu_raw_msg;
+ros::Publisher imu_raw_topic("/imu_raw", &imu_raw_msg);
+#endif
+
 #endif
 
 void setup()
 {
+#ifdef MINIMU_ROS
+    nh.getHardware()->setBaud(115200);
+    nh.initNode();
+    nh.advertise(imu_topic);
+    nh.loginfo("Starting /imu topic");
+#ifdef RAW_IMU_ROS
+    nh.advertise(imu_raw_topic);
+    nh.loginfo("Starting /imu_raw topic");
+#endif
+#else
     Serial.begin(115200);
+#endif
 
     pinMode(STATUS_LED, OUTPUT);
     digitalWrite(STATUS_LED, LOW);
-
-    I2CInit();
-    
-    Serial.println("Pololu MinIMU-9 + Arduino AHRS");
 
     /* define tasks frequency */
     _frequency_estimator.start((unsigned long) millis());
     _frequency_print.start((unsigned long) millis());
 #ifdef MINIMU_ROS
     _frequency_topic.start((unsigned long) millis());
-    nh.initNode();
-    nh.advertise(imu_topic);
 #endif
-    
-    delay(1500);
-    
+
     /* Sensors initialization */
+    I2CInit();
+    delay(1500);
     SensorsInit();
     MagnetoInit();
     GyroInit();
@@ -181,6 +196,8 @@ void setup()
     }
     acc_bias[2] -= 1.0; // g
 
+#ifdef MINIMU_ROS
+#else
     if (PRINT_BIAS) {
         Serial.println("Initial gyro bias:");
         for (int i = 0; i < 3; i++) {
@@ -193,6 +210,7 @@ void setup()
             Serial.println(" m/s");
         }
     }
+#endif
 
     /* Initialize estimator */
     estimator.begin(betaDef, zetaDef);
@@ -222,28 +240,26 @@ void loop()
         dt = (float)(timer - prev_timer) / 1000.0f;
         prev_timer = timer;
         estimator.update(dt, gyro[0], gyro[1], gyro[2], acc[0], acc[1], acc[2], mag_raw[0], mag_raw[1], mag_raw[2], &gyro_bias[0], &gyro_bias[1], &gyro_bias[2]);
-
-        angle_est[0] = estimator.getRoll();
-        angle_est[1] = estimator.getPitch();
-        angle_est[2] = estimator.getYaw();
     }
 
     if(_frequency_print.delay(millis())) {
-        printdata();
+        PrintData();
     }
 
 #ifdef MINIMU_ROS
     if(_frequency_topic.delay(millis())) {
+        estimator.getQuaternion(quat_est);
+        
         seq++;
         imu_msg.header.seq = seq;
         imu_msg.header.stamp = nh.now();
         imu_msg.header.frame_id = "imu";
 
-        imu_msg.orientation.x = angle_est[0]; // to convert to quaternion
-        imu_msg.orientation.y = angle_est[1];
-        imu_msg.orientation.z = angle_est[2];
-        imu_msg.orientation.w = 0.0;
-
+        imu_msg.orientation.x = quat_est[0];
+        imu_msg.orientation.y = quat_est[1];
+        imu_msg.orientation.z = quat_est[2];
+        imu_msg.orientation.w = quat_est[3];
+ 
         imu_msg.angular_velocity.x = gyro[0];
         imu_msg.angular_velocity.y = gyro[1];
         imu_msg.angular_velocity.z = gyro[2];
@@ -252,7 +268,28 @@ void loop()
         imu_msg.linear_acceleration.y = acc[1];
         imu_msg.linear_acceleration.z = acc[2];
 
+#ifdef RAW_IMU_ROS
+        imu_raw_msg.header.seq = seq;
+        imu_raw_msg.header.stamp = nh.now();
+        imu_raw_msg.header.frame_id = "imu_raw";
+
+        /* orientation section is used for magnetometer values */
+        imu_raw_msg.orientation.x = mag_raw[0];
+        imu_raw_msg.orientation.y = mag_raw[1];
+        imu_raw_msg.orientation.z = mag_raw[2];
+        imu_raw_msg.orientation.w = 0.0;
+
+        imu_raw_msg.angular_velocity.x = gyro_raw[0];
+        imu_raw_msg.angular_velocity.y = gyro_raw[1];
+        imu_raw_msg.angular_velocity.z = gyro_raw[2];
+
+        imu_raw_msg.linear_acceleration.x = acc_raw[0];
+        imu_raw_msg.linear_acceleration.y = acc_raw[1];
+        imu_raw_msg.linear_acceleration.z = acc_raw[2];
+
         /* publish message */
+        imu_raw_topic.publish(&imu_raw_msg);
+#endif
         imu_topic.publish(&imu_msg);
         nh.spinOnce();
     }

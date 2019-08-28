@@ -28,10 +28,14 @@ with MinIMU-9-Arduino-AHRS. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-void printdata()
+void PrintData()
 {   
-      if (PRINT_DATA_RAW || PRINT_DATA || PRINT_EULER_ANGLES || PRINT_BIAS)
+#ifdef MINIMU_ROS
+#else
+      if (PRINT_DATA_RAW || PRINT_DATA || PRINT_EULER_ANGLES || PRINT_BIAS) {
             Serial.print("!");
+            estimator.getAngles(angle_est);
+      }
 
       if (PRINT_DATA_RAW) {
             Serial.print("gyro_raw:");
@@ -106,5 +110,6 @@ void printdata()
 
       if (PRINT_DATA_RAW || PRINT_DATA || PRINT_EULER_ANGLES || PRINT_BIAS)
             Serial.println();
+#endif
       
 }
